@@ -2,6 +2,19 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const { initializeDatabase, authenticateUser, sql } = require('./database');
+const {
+  initializeInventoryTable,
+  getAllInventoryItems,
+  getInventoryItemById,
+  createInventoryItem,
+  updateInventoryItem,
+  deleteInventoryItem,
+  deleteMultipleInventoryItems,
+  getAllCategories,
+  getAllWarehouses,
+  getInventoryStats,
+  updateItemQuantity
+} = require('./inventory');
 require('dotenv').config();
 
 const app = express();
@@ -139,6 +152,26 @@ app.get('/api/db-status', async (req, res) => {
   }
 });
 
+// API: Get all inventory items
+app.get('/api/inventory', requireAuth, async (req, res) => {
+  try {
+    const items = await getAllInventoryItems();
+    res.json({ success: true, data: items });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch inventory items' });
+  }
+});
+
+// API: Insert new inventory item
+app.post('/api/inventory', requireAuth, async (req, res) => {
+  try {
+    const newItem = await createInventoryItem(req.body);
+    res.json({ success: true, message: 'Item inserted successfully', data: newItem });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to insert item' });
+  }
+});
+
 // Initialize database and start server
 const startServer = async () => {
   try {
@@ -158,3 +191,4 @@ const startServer = async () => {
 };
 
 startServer();
+
