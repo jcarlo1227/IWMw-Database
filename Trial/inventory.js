@@ -4,7 +4,7 @@ const { sql } = require('./database');
 const initializeInventoryTable = async () => {
   try {
     await sql`
-      CREATE TABLE IF NOT EXISTS inventory (
+      CREATE TABLE IF NOT EXISTS inventory_items (
         id SERIAL PRIMARY KEY,
         item_code VARCHAR(50) UNIQUE NOT NULL,
         product_name VARCHAR(255) NOT NULL,
@@ -50,11 +50,6 @@ const initializeInventoryTable = async () => {
     
     console.log('✅ Warehouses table created/verified');
     
-    // Insert default categories if they don't exist
-    await insertDefaultCategories();
-    
-    // Insert default warehouses if they don't exist
-    await insertDefaultWarehouses();
     
   } catch (err) {
     console.error('❌ Error creating inventory tables:', err);
@@ -62,42 +57,6 @@ const initializeInventoryTable = async () => {
   }
 };
 
-// Insert default categories
-const insertDefaultCategories = async () => {
-  try {
-    const existingCategories = await sql`SELECT * FROM categories LIMIT 1`;
-    
-    if (existingCategories.length === 0) {
-      await sql`
-        INSERT INTO categories (category_id, category_name, description) VALUES
-        ('CAT001', 'Electronics', 'Electronic devices and gadgets'),
-        ('CAT002', 'Accessories', 'Various accessories and add-ons'),
-        ('CAT003', 'Components', 'Hardware components and parts')
-      `;
-      console.log('✅ Default categories inserted');
-    }
-  } catch (err) {
-    console.error('❌ Error inserting default categories:', err);
-  }
-};
-
-// Insert default warehouses
-const insertDefaultWarehouses = async () => {
-  try {
-    const existingWarehouses = await sql`SELECT * FROM warehouses LIMIT 1`;
-    
-    if (existingWarehouses.length === 0) {
-      await sql`
-        INSERT INTO warehouses (warehouse_id, warehouse_name, location, capacity) VALUES
-        ('WH001', 'Main Warehouse', 'Manila, Philippines', 10000),
-        ('WH002', 'Secondary Warehouse', 'Cebu, Philippines', 5000)
-      `;
-      console.log('✅ Default warehouses inserted');
-    }
-  } catch (err) {
-    console.error('❌ Error inserting default warehouses:', err);
-  }
-};
 
 // CRUD Operations for Inventory
 
@@ -109,7 +68,7 @@ const getAllInventoryItems = async (filters = {}) => {
         i.*,
         c.category_name,
         w.warehouse_name
-      FROM inventory i
+      FROM inventory_items i
       LEFT JOIN categories c ON i.category_id = c.category_id
       LEFT JOIN warehouses w ON i.warehouse_id = w.warehouse_id
     `;
@@ -144,7 +103,7 @@ const getAllInventoryItems = async (filters = {}) => {
           i.*,
           c.category_name,
           w.warehouse_name
-        FROM inventory i
+        FROM inventory_items i
         LEFT JOIN categories c ON i.category_id = c.category_id
         LEFT JOIN warehouses w ON i.warehouse_id = w.warehouse_id
         ${sql.unsafe(whereClause)}
@@ -156,7 +115,7 @@ const getAllInventoryItems = async (filters = {}) => {
           i.*,
           c.category_name,
           w.warehouse_name
-        FROM inventory i
+        FROM inventory_items i
         LEFT JOIN categories c ON i.category_id = c.category_id
         LEFT JOIN warehouses w ON i.warehouse_id = w.warehouse_id
         ORDER BY i.updated_at DESC
@@ -179,7 +138,7 @@ const getInventoryItemById = async (id) => {
         i.*,
         c.category_name,
         w.warehouse_name
-      FROM inventory i
+      FROM inventory_items i
       LEFT JOIN categories c ON i.category_id = c.category_id
       LEFT JOIN warehouses w ON i.warehouse_id = w.warehouse_id
       WHERE i.id = ${id}
@@ -209,7 +168,7 @@ const createInventoryItem = async (itemData) => {
     } = itemData;
     
     const result = await sql`
-      INSERT INTO inventory (
+      INSERT INTO inventory_items (
         item_code, product_name, unit_of_measure, buy_price, sell_price,
         location, category_id, status, warehouse_id, total_quantity, updated_at
       ) VALUES (
@@ -243,7 +202,7 @@ const updateInventoryItem = async (id, itemData) => {
     } = itemData;
     
     const result = await sql`
-      UPDATE inventory SET
+      UPDATE inventory_items SET
         item_code = ${item_code},
         product_name = ${product_name},
         unit_of_measure = ${unit_of_measure},
@@ -270,7 +229,7 @@ const updateInventoryItem = async (id, itemData) => {
 const deleteInventoryItem = async (id) => {
   try {
     const result = await sql`
-      DELETE FROM inventory
+      DELETE FROM inventory_items
       WHERE id = ${id}
       RETURNING *
     `;
@@ -286,7 +245,7 @@ const deleteInventoryItem = async (id) => {
 const deleteMultipleInventoryItems = async (ids) => {
   try {
     const result = await sql`
-      DELETE FROM inventory
+      DELETE FROM inventory_items
       WHERE id = ANY(${ids})
       RETURNING *
     `;
@@ -331,10 +290,10 @@ const getAllWarehouses = async () => {
 // Get inventory statistics
 const getInventoryStats = async () => {
   try {
-    const totalItems = await sql`SELECT COUNT(*) as count FROM inventory`;
-    const activeItems = await sql`SELECT COUNT(*) as count FROM inventory WHERE status = 'active'`;
-    const lowStockItems = await sql`SELECT COUNT(*) as count FROM inventory WHERE total_quantity < 10`;
-    const totalValue = await sql`SELECT COALESCE(SUM(buy_price * total_quantity), 0) as total FROM inventory`;
+    const totalItems = await sql`SELECT COUNT(*) as count FROM inventory_items`;
+    const activeItems = await sql`SELECT COUNT(*) as count FROM inventory_items WHERE status = 'active'`;
+    const lowStockItems = await sql`SELECT COUNT(*) as count FROM inventory_items WHERE total_quantity < 10`;
+    const totalValue = await sql`SELECT COALESCE(SUM(buy_price * total_quantity), 0) as total FROM inventory_items`;
     
     return {
       totalItems: parseInt(totalItems[0].count),
@@ -355,21 +314,21 @@ const updateItemQuantity = async (id, newQuantity, operation = 'set') => {
     
     if (operation === 'add') {
       query = sql`
-        UPDATE inventory 
+        UPDATE inventory_items 
         SET total_quantity = total_quantity + ${newQuantity}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id}
         RETURNING *
       `;
     } else if (operation === 'subtract') {
       query = sql`
-        UPDATE inventory 
+        UPDATE inventory_items 
         SET total_quantity = GREATEST(total_quantity - ${newQuantity}, 0), updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id}
         RETURNING *
       `;
     } else {
       query = sql`
-        UPDATE inventory 
+        UPDATE inventory_items 
         SET total_quantity = ${newQuantity}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ${id}
         RETURNING *
