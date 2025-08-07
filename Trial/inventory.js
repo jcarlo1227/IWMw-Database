@@ -55,10 +55,26 @@ const initializeInventoryTable = async () => {
     console.error('❌ Error creating inventory tables:', err);
     throw err;
   }
+
+  // Insert default Categories
+  await sql`
+  INSERT INTO categories (category_id, category_name) VALUES
+    ('CAT001', 'Electronics'),
+    ('CAT002', 'Accessories'),
+    ('CAT003', 'Components')
+  ON CONFLICT (category_id) DO NOTHING;
+`;
+console.log('✅ Categories inserted');
+
+// Insert default Warehouses
+await sql`
+  INSERT INTO warehouses (warehouse_id, warehouse_name) VALUES
+    ('WH001', 'Main Warehouse'),
+    ('WH002', 'Secondary Warehouse')
+  ON CONFLICT (warehouse_id) DO NOTHING;
+`;
+console.log('✅ Warehouse inserted');
 };
-
-
-// CRUD Operations for Inventory
 
 // Get all inventory items with optional filters
 const getAllInventoryItems = async (filters = {}) => {
