@@ -131,6 +131,16 @@ app.get('/api/user', requireAuth, (req, res) => {
   });
 });
 
+// Express route
+app.get('/api/user', requireAuth, (req, res) => {
+  // Only return admin user info
+  if (req.user && req.user.role === 'admin') {
+    res.json({ success: true, data: req.user });
+  } else {
+    res.status(403).json({ success: false, message: 'Forbidden' });
+  }
+});
+
 // API route to check database connection status
 app.get('/api/db-status', async (req, res) => {
   try {
@@ -162,6 +172,19 @@ app.get('/api/inventory', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/inventory/:id', requireAuth, async (req, res) => {
+  try {
+    const item = await getInventoryItemById(req.params.id);
+    if (item) {
+      res.json({ success: true, data: item });
+    } else {
+      res.status(404).json({ success: false, message: 'Item not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch item' });
+  }
+});
+
 // API: Insert new inventory item
 app.post('/api/inventory', requireAuth, async (req, res) => {
   try {
@@ -169,6 +192,57 @@ app.post('/api/inventory', requireAuth, async (req, res) => {
     res.json({ success: true, message: 'Item inserted successfully', data: newItem });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to insert item' });
+  }
+});
+
+// API: Update existing inventory item
+app.post('/api/inventory/delete-multiple', requireAuth, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    await deleteMultipleInventoryItems(ids);
+    res.json({ success: true, message: 'Items deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to delete items' });
+  }
+});
+
+// API: Delete inventory item
+app.put('/api/inventory/:id', requireAuth, async (req, res) => {
+  try {
+    const updatedItem = await updateInventoryItem(req.params.id, req.body);
+    res.json({ success: true, message: 'Item updated successfully', data: updatedItem });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update item' });
+  }
+});
+
+// API: Get all categories
+app.get('/api/categories', requireAuth, async (req, res) => {
+  try {
+    const categories = await getAllCategories();
+    res.json({ success: true, data: categories });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch categories' });
+  }
+});
+
+// API: Get all warehouses
+app.get('/api/warehouses', requireAuth, async (req, res) => {
+  try {
+    const warehouses = await getAllWarehouses();
+    res.json({ success: true, data: warehouses });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch warehouses' });
+  }
+});
+
+// Test route to get all inventory items without authentication
+app.get('/api/test-inventory', async (req, res) => {
+  try {
+    const items = await getAllInventoryItems();
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -191,4 +265,3 @@ const startServer = async () => {
 };
 
 startServer();
-
